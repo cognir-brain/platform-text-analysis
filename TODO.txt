@@ -1,0 +1,10 @@
+FINAL TASK
+- perfomance fixed                  #DONE
+- navbar content
+- login page content                #DONE
+- prompt box UI                     #DONE
+- UPDATE Expandable icon and layout #DONE
+- update history page ui            #DONE
+- fix history error                 #DONE
+- radix ui bug                      #DONE
+- fix pdf viewer                    #DONE
