@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from "react";
-import { Zap, RotateCcw, FileText, Upload, ArrowRight, ExternalLink, MessageSquare, Globe, ChevronDown } from "lucide-react";
+import { RotateCcw, FileText, Upload, ArrowRight, ExternalLink, MessageSquare, Globe, ChevronDown } from "lucide-react";
 import { saveChat } from "@/lib/chatService";
 import { useRouter } from "next/navigation";
 

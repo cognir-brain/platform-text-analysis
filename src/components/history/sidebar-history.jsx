@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
@@ -61,7 +61,7 @@ const groupAnalysisByDate = (analyses) => {
     );
 };
 
-export function SidebarHistory({ user }) {
+export function SidebarHistory({ user, type = 'all', limit = 10 }) {
     const { id } = useParams();
     const router = useRouter();
     const [analyses, setAnalyses] = useState([]);
@@ -117,6 +117,19 @@ export function SidebarHistory({ user }) {
             setDeleteId(null);
         }
     };
+
+    // Filter berdasarkan type
+    const filteredHistory = useMemo(() => {
+        if (type === 'all') return analyses;
+        if (type === 'analysis') return analyses.filter(item => item.type === 'analysis');
+        if (type === 'notes') return analyses.filter(item => item.type === 'notes');
+        return analyses;
+    }, [analyses, type]);
+
+    // Limit hasil
+    const limitedHistory = useMemo(() => {
+        return filteredHistory.slice(0, limit);
+    }, [filteredHistory, limit]);
 
     if (!user) {
         return (

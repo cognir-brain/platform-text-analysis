@@ -11,16 +11,61 @@ export default function ProtectedLayout({ children }) {
     const { session, user } = useAuth();
     const pathname = usePathname();
 
-    // Simple page title logic
+    // Enhanced page title logic with AI Notes support
     const getPageTitle = () => {
         if (pathname === '/analysis') return 'Text Analysis';
         if (pathname === '/history') return 'Analysis History';
         if (pathname.startsWith('/history/')) return 'View Analysis';
-        return 'Text Analysis';
+
+        // AI Notes routes
+        if (pathname === '/notes') return 'AI Notes';
+        if (pathname === '/notes/history') return 'Notes History';
+        if (pathname.startsWith('/notes/') && pathname.includes('/chatbot')) return 'Chat Bot';
+        if (pathname.startsWith('/notes/') && pathname.includes('/flashcard')) return 'Flashcard';
+        if (pathname.startsWith('/notes/') && pathname.includes('/quiz')) return 'Quiz';
+        if (pathname.startsWith('/notes/') && pathname.includes('/transcript')) return 'Transcript';
+        if (pathname.startsWith('/notes/') && !pathname.includes('/')) return 'View Notes';
+
+        return 'Dashboard';
     };
 
-    const isHomePage = pathname === '/analysis';
+    // Enhanced breadcrumb logic
+    const getBreadcrumbs = () => {
+        const breadcrumbs = [];
+
+        // Notes routes
+        if (pathname.startsWith('/notes/history')) {
+            breadcrumbs.push({
+                href: '/notes',
+                label: 'AI Notes'
+            });
+            breadcrumbs.push({
+                href: '/notes/history',
+                label: 'Notes History'
+            });
+        } else if (pathname.startsWith('/notes/') && pathname !== '/notes') {
+            // For individual note pages
+            breadcrumbs.push({
+                href: '/notes',
+                label: 'AI Notes'
+            });
+
+            // Extract note ID for note-specific pages
+            const pathParts = pathname.split('/');
+            if (pathParts.length >= 3 && pathParts[2]) {
+                const noteId = pathParts[2];
+                breadcrumbs.push({
+                    href: `/notes/${noteId}`,
+                    label: 'Notes'
+                });
+            }
+        }
+
+        return breadcrumbs;
+    };
+
     const pageTitle = getPageTitle();
+    const breadcrumbs = getBreadcrumbs();
 
     return (
         <SidebarProvider>
@@ -32,27 +77,16 @@ export default function ProtectedLayout({ children }) {
                         <Separator orientation="vertical" className="mr-2 h-4" />
                         <Breadcrumb>
                             <BreadcrumbList>
-                                {!isHomePage && (
-                                    <>
+                                {breadcrumbs.map((breadcrumb, index) => (
+                                    <div key={index} className="flex items-center">
                                         <BreadcrumbItem className="hidden md:block">
-                                            <BreadcrumbLink href="/analysis">
-                                                Cognir AI
+                                            <BreadcrumbLink href={breadcrumb.href}>
+                                                {breadcrumb.label}
                                             </BreadcrumbLink>
                                         </BreadcrumbItem>
                                         <BreadcrumbSeparator className="hidden md:block" />
-                                    </>
-                                )}
-
-                                {pathname.startsWith('/history/') && (
-                                    <>
-                                        <BreadcrumbItem className="hidden md:block">
-                                            <BreadcrumbLink href="/history">
-                                                History
-                                            </BreadcrumbLink>
-                                        </BreadcrumbItem>
-                                        <BreadcrumbSeparator className="hidden md:block" />
-                                    </>
-                                )}
+                                    </div>
+                                ))}
 
                                 <BreadcrumbItem>
                                     <BreadcrumbPage>{pageTitle}</BreadcrumbPage>

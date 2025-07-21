@@ -1,7 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { History, MessageCirclePlus, LogOut, Plus } from 'lucide-react';
+import {
+    History,
+    MessageCirclePlus,
+    LogOut,
+    Plus,
+    ChevronDown,
+    ChevronRight,
+    FileText,
+    MessageSquare,
+    Sparkles
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/authContext';
@@ -46,6 +56,12 @@ export function AppSidebar({ user, ...props }) {
     const { setOpenMobile } = useSidebar();
     const [showLogoutDialog, setShowLogoutDialog] = React.useState(false);
     const [imageError, setImageError] = React.useState(false);
+    const [expandedSections, setExpandedSections] = React.useState({
+        textAnalysis: true,
+        aiNotes: true,
+        recent: true
+    });
+    const [recentTab, setRecentTab] = React.useState('all');
 
     const userAvatar = user?.user_metadata?.avatar_url || null;
     const userName = user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
@@ -66,6 +82,13 @@ export function AppSidebar({ user, ...props }) {
         router.refresh();
     };
 
+    const toggleSection = (section) => {
+        setExpandedSections(prev => ({
+            ...prev,
+            [section]: !prev[section]
+        }));
+    };
+
     return (
         <>
             <Sidebar variant="inset" {...props}>
@@ -79,35 +102,44 @@ export function AppSidebar({ user, ...props }) {
                                         onClick={() => setOpenMobile(false)}
                                     >
                                         <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                                            <img src="/img/logo.png" alt="logo" className="h-5 w-5 shrink-0" />                                    </div>
+                                            <img src="/img/logo.png" alt="logo" className="h-5 w-5 shrink-0" />
+                                        </div>
                                         <div className="grid flex-1 text-left text-sm leading-tight">
                                             <span className="truncate font-semibold">Cognir AI</span>
-                                            <span className="truncate text-xs">Text Analysis Platform</span>
+                                            <span className="truncate text-xs">AI-Powered Platform</span>
                                         </div>
                                     </Link>
                                 </SidebarMenuButton>
 
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
                                         <Button
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8"
-                                            onClick={handleNewChat}
                                         >
                                             <Plus className="h-4 w-4" />
                                         </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent align="end">New Analysis</TooltipContent>
-                                </Tooltip>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => router.push('/analysis')}>
+                                            <MessageSquare className="h-4 w-4 mr-2" />
+                                            New Text Analysis
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => router.push('/notes')}>
+                                            <FileText className="h-4 w-4 mr-2" />
+                                            New AI Notes
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                         </SidebarMenuItem>
                     </SidebarMenu>
                 </SidebarHeader>
 
                 <SidebarContent>
+                    {/* Main Menu Items */}
                     <SidebarGroup>
-                        <SidebarGroupLabel>Navigation</SidebarGroupLabel>
                         <SidebarGroupContent>
                             <SidebarMenu>
                                 <SidebarMenuItem>
@@ -116,20 +148,30 @@ export function AppSidebar({ user, ...props }) {
                                             href="/analysis"
                                             onClick={() => setOpenMobile(false)}
                                         >
-                                            <MessageCirclePlus />
+                                            <MessageSquare className="h-4 w-4" />
                                             <span>New Text Analysis</span>
                                         </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
-
                                 <SidebarMenuItem>
                                     <SidebarMenuButton asChild>
                                         <Link
                                             href="/history"
                                             onClick={() => setOpenMobile(false)}
                                         >
-                                            <History />
+                                            <History className="h-4 w-4" />
                                             <span>Analysis History</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link
+                                            href="/notes"
+                                            onClick={() => setOpenMobile(false)}
+                                        >
+                                            <Sparkles className="h-4 w-4" />
+                                            <span>AI Notes</span>
                                         </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
@@ -137,8 +179,53 @@ export function AppSidebar({ user, ...props }) {
                         </SidebarGroupContent>
                     </SidebarGroup>
 
-                    {/* History Section */}
-                    <SidebarHistory user={user} />
+                    {/* Recent Section */}
+                    <SidebarGroup>
+                        <SidebarGroupLabel>
+                            <button
+                                onClick={() => toggleSection('recent')}
+                                className="flex items-center justify-between w-full text-left hover:text-sidebar-accent-foreground"
+                            >
+                                <span>Recent</span>
+                                {expandedSections.recent ? (
+                                    <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                )}
+                            </button>
+                        </SidebarGroupLabel>
+                        {expandedSections.recent && (
+                            <SidebarGroupContent>
+                                <div className="flex space-x-1 mb-2">
+                                    <Button
+                                        variant={recentTab === 'all' ? 'default' : 'ghost'}
+                                        size="sm"
+                                        onClick={() => setRecentTab('all')}
+                                        className="h-7 px-2 text-xs"
+                                    >
+                                        All
+                                    </Button>
+                                    <Button
+                                        variant={recentTab === 'analysis' ? 'default' : 'ghost'}
+                                        size="sm"
+                                        onClick={() => setRecentTab('analysis')}
+                                        className="h-7 px-2 text-xs"
+                                    >
+                                        Analysis
+                                    </Button>
+                                    <Button
+                                        variant={recentTab === 'notes' ? 'default' : 'ghost'}
+                                        size="sm"
+                                        onClick={() => setRecentTab('notes')}
+                                        className="h-7 px-2 text-xs"
+                                    >
+                                        Notes
+                                    </Button>
+                                </div>
+                                <SidebarHistory user={user} type={recentTab} />
+                            </SidebarGroupContent>
+                        )}
+                    </SidebarGroup>
                 </SidebarContent>
 
                 <SidebarFooter>

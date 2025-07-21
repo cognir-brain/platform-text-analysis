@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ExternalLink, Download, Share, Bookmark } from 'lucide-react';
+import { ArrowLeft, Bookmark } from 'lucide-react';
 import { getChatById, toggleBookmark } from '@/lib/chatService';
 import AnalysisResult from '@/components/analysis/chart-group';
 import SourceViewer from '@/components/analysis/source-viewer';
