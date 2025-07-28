@@ -3,6 +3,8 @@
 import { useState, useRef } from "react";
 import { RotateCcw, FileText, Upload, ArrowRight, Youtube, ChevronDown, PlayCircle, Clock, User } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { notesService } from '@/lib/notesService';
+import { RecentNotes } from '@/components/recent-notes';
 
 export function NotesPage() {
     // Core states
@@ -29,6 +31,30 @@ export function NotesPage() {
         { value: 'english', label: 'English', flag: '🇺🇸' },
         { value: 'arab', label: 'العربية', flag: '🇸🇦' }
     ];
+
+    // YouTube Processing Handler
+    const handleYouTubeProcess = async () => {
+        if (!youtubeUrl.trim()) return;
+
+        setIsVideoLoading(true);
+        setError(null);
+
+        try {
+            const result = await notesService.processYouTube(youtubeUrl.trim());
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to process YouTube video');
+            }
+
+            setVideoData(result.data);
+            setInputText(result.data.transcript);
+
+        } catch (error) {
+            setError(error.message);
+        } finally {
+            setIsVideoLoading(false);
+        }
+    };
 
     // File Upload Handler
     const handleFileUpload = async (event) => {
@@ -57,63 +83,17 @@ export function NotesPage() {
         setError(null);
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const response = await fetch('/api/notes/upload', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const result = await response.json();
+            const result = await notesService.uploadFile(file);
 
             if (!result.success) {
-                throw new Error(result.error || 'Failed to process file');
+                throw new Error(result.error);
             }
 
             setFileData(result.data);
             setInputText(result.data.text);
 
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
-
         } catch (error) {
             setError(error.message);
-            console.error('File upload error:', error);
-        } finally {
-            setIsFileUploading(false);
-        }
-    };
-
-    // YouTube Processing Handler
-    const handleYouTubeProcess = async () => {
-        if (!youtubeUrl.trim()) return;
-
-        setIsVideoLoading(true);
-        setError(null);
-
-        try {
-            const response = await fetch('/api/notes/youtube', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: youtubeUrl.trim() }),
-            });
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to process YouTube video');
-            }
-
-            setVideoData(result.data);
-            setInputText(result.data.transcript);
-
-        } catch (error) {
-            setError(error.message);
-            console.error('YouTube processing error:', error);
-        } finally {
-            setIsVideoLoading(false);
         }
     };
 
@@ -134,46 +114,44 @@ export function NotesPage() {
         try {
             console.log('Starting notes generation with language:', language);
 
-            // Prepare request body based on source type
-            let requestBody = {
-                text: text,
+            // Prepare request body for Go backend
+            let noteData = {
+                title: `Notes from ${activeTab}`,
+                content: text,
                 language,
-                sourceType: activeTab
+                source_type: activeTab,
+                metadata: {}
             };
 
             // Add source metadata
             if (videoData) {
-                requestBody.videoMetadata = {
+                noteData.metadata = {
+                    type: 'youtube',
+                    video_id: videoData.videoId,
                     title: videoData.title,
                     duration: videoData.duration,
-                    videoId: videoData.videoId,
-                    url: youtubeUrl
+                    url: youtubeUrl,
+                    word_count: videoData.wordCount
                 };
             } else if (fileData) {
-                requestBody.fileMetadata = {
+                noteData.metadata = {
+                    type: 'file',
                     filename: fileData.filename,
-                    fileSize: fileData.fileSize,
-                    fileType: fileData.fileType,
-                    wordCount: fileData.wordCount
+                    file_size: fileData.fileSize,
+                    file_type: fileData.fileType,
+                    word_count: fileData.wordCount
                 };
             }
 
-            // Send notes generation request
-            const res = await fetch('/api/notes/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody),
-            });
+            // Send to Go backend directly
+            const result = await notesService.createNote(noteData);
 
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || 'Notes generation failed.');
+            if (!result.success) {
+                throw new Error(result.error || 'Notes generation failed.');
             }
 
-            const data = await res.json();
-
             // Redirect to notes result page
-            router.push(`/notes/${data.id}`);
+            router.push(`/notes/${result.data.id}`);
 
         } catch (error) {
             setError(error.message);
@@ -191,7 +169,7 @@ export function NotesPage() {
     return (
         <div className="max-w-4xl w-full mx-auto my-20">
             <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">AI Notes Generator</h1>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">AI Notes</h1>
                 <p className="text-gray-600">Transform YouTube videos and documents into comprehensive AI-powered notes</p>
             </div>
 
@@ -208,8 +186,8 @@ export function NotesPage() {
                                     setInputText('');
                                 }}
                                 className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'youtube'
-                                        ? 'bg-white text-red-600 shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900'
+                                    ? 'bg-white text-red-600 shadow-sm'
+                                    : 'text-gray-600 hover:text-gray-900'
                                     }`}
                             >
                                 <Youtube className="h-4 w-4" />
@@ -223,8 +201,8 @@ export function NotesPage() {
                                     setYoutubeUrl('');
                                 }}
                                 className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'file'
-                                        ? 'bg-white text-green-600 shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900'
+                                    ? 'bg-white text-green-600 shadow-sm'
+                                    : 'text-gray-600 hover:text-gray-900'
                                     }`}
                             >
                                 <FileText className="h-4 w-4" />
@@ -435,8 +413,8 @@ export function NotesPage() {
                             onClick={handleSubmit}
                             disabled={!hasContent || isLoading}
                             className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${hasContent && !isLoading
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                 }`}
                         >
                             {isLoading ? (
@@ -453,6 +431,11 @@ export function NotesPage() {
                         </button>
                     </div>
                 </div>
+            </div>
+
+            {/* Recent Notes Section */}
+            <div className="mt-8">
+                <RecentNotes />
             </div>
         </div>
     );

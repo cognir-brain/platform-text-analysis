@@ -175,6 +175,17 @@ export function AppSidebar({ user, ...props }) {
                                         </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link
+                                            href="/notes/history"
+                                            onClick={() => setOpenMobile(false)}
+                                        >
+                                            <FileText className="h-4 w-4" />
+                                            <span>Notes History</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
                             </SidebarMenu>
                         </SidebarGroupContent>
                     </SidebarGroup>

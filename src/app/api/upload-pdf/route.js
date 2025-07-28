@@ -3,7 +3,7 @@ import pdf from 'pdf-parse';
 
 export async function POST(req) {
     try {
-        console.log('Starting PDF upload...');
+        console.log('Starting file upload...');
 
         // Check environment variables
         if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
@@ -16,11 +16,25 @@ export async function POST(req) {
         // Parse form data
         const data = await req.formData();
         const file = data.get('file');
+        const type = data.get('type') || 'analysis'; // 'analysis' or 'notes'
 
-        if (!file || file.type !== 'application/pdf') {
+        // Expand file type support for notes
+        const allowedTypes = type === 'notes'
+            ? ['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword']
+            : ['application/pdf'];
+
+        if (!file) {
             return Response.json({
                 success: false,
-                error: "Please upload a valid PDF file"
+                error: "No file provided"
+            }, { status: 400 });
+        }
+
+        if (!allowedTypes.includes(file.type)) {
+            const supportedFormats = type === 'notes' ? 'PDF, TXT, or DOC' : 'PDF';
+            return Response.json({
+                success: false,
+                error: `Please upload a valid ${supportedFormats} file`
             }, { status: 400 });
         }
 
@@ -35,28 +49,49 @@ export async function POST(req) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Extract text from PDF
-        const pdfData = await pdf(buffer);
-        const extractedText = pdfData.text.trim();
+        let extractedText = '';
+        let metadata = {};
+
+        // Process based on file type
+        if (file.type === 'application/pdf') {
+            const pdfData = await pdf(buffer);
+            extractedText = pdfData.text.trim();
+            metadata = {
+                pages: pdfData.numpages,
+                info: pdfData.info || {}
+            };
+        } else if (file.type === 'text/plain') {
+            extractedText = buffer.toString('utf-8').trim();
+        } else {
+            // For DOC/DOCX files, return error for now
+            return Response.json({
+                success: false,
+                error: "DOC/DOCX files not yet supported"
+            }, { status: 400 });
+        }
 
         if (extractedText.length < 10) {
             return Response.json({
                 success: false,
-                error: 'No readable text found in PDF'
+                error: 'No readable text found in the file'
             }, { status: 400 });
         }
 
-        // Generate unique filename
+        // Generate unique filename based on type
         const timestamp = Date.now();
         const randomId = Math.random().toString(36).substring(7);
         const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9-_]/g, '_');
-        const fileName = `uploads/${timestamp}_${randomId}_${cleanName}.pdf`;
+        const folderPrefix = type === 'notes' ? 'notes-uploads' : 'uploads';
+        const fileName = `${folderPrefix}/${timestamp}_${randomId}_${cleanName}`;
 
-        // Upload to Supabase Storage using admin client
+        // Choose bucket based on type
+        const bucketName = type === 'notes' ? 'documents' : 'pdf-files';
+
+        // Upload to Supabase Storage
         const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-            .from('pdf-files')
+            .from(bucketName)
             .upload(fileName, buffer, {
-                contentType: 'application/pdf',
+                contentType: file.type,
                 cacheControl: '3600'
             });
 
@@ -64,13 +99,13 @@ export async function POST(req) {
             console.error('Upload error:', uploadError);
             return Response.json({
                 success: false,
-                error: 'Failed to upload PDF: ' + uploadError.message
+                error: 'Failed to upload file: ' + uploadError.message
             }, { status: 500 });
         }
 
         // Get public URL
         const { data: { publicUrl } } = supabaseAdmin.storage
-            .from('pdf-files')
+            .from(bucketName)
             .getPublicUrl(fileName);
 
         // Calculate stats
@@ -81,18 +116,25 @@ export async function POST(req) {
             text: extractedText,
             filename: file.name,
             fileSize: file.size,
-            pages: pdfData.numpages,
             wordCount: wordCount,
             readingTime: readingTime,
-            pdfUrl: publicUrl,
+            fileType: file.type,
+            fileUrl: publicUrl,
             storagePath: fileName,
             metadata: {
-                info: pdfData.info || {},
+                ...metadata,
                 uploadedAt: new Date().toISOString(),
                 originalFilename: file.name,
-                mimeType: file.type
+                mimeType: file.type,
+                type: type
             }
         };
+
+        // Add pages info for PDF
+        if (file.type === 'application/pdf') {
+            result.pages = metadata.pages;
+            result.pdfUrl = publicUrl; // Backward compatibility
+        }
 
         return Response.json({
             success: true,
@@ -100,10 +142,10 @@ export async function POST(req) {
         });
 
     } catch (error) {
-        console.error('PDF processing error:', error);
+        console.error('File processing error:', error);
         return Response.json({
             success: false,
-            error: 'Failed to process PDF: ' + error.message
+            error: 'Failed to process file: ' + error.message
         }, { status: 500 });
     }
 }
@@ -121,7 +163,8 @@ export async function GET() {
             },
             storage: {
                 connected: !error,
-                hasPdfBucket: buckets?.some(b => b.name === 'pdf-files') || false
+                hasPdfBucket: buckets?.some(b => b.name === 'pdf-files') || false,
+                hasDocumentsBucket: buckets?.some(b => b.name === 'documents') || false
             }
         });
     } catch (error) {
