@@ -26,6 +26,7 @@ export function AuthProvider({ children }) {
 
                 setUser(session?.user || null);
                 setSession(session);
+                console.log('user==>', session)
 
                 if (session?.user) {
                     initialSignInComplete.current = true;

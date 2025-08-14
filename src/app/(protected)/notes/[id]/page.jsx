@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { notesService } from '@/lib/notesService';
-import { Loader2, FileText, Calendar, Globe, PlayCircle, User, Clock } from 'lucide-react';
+import { Loader2, FileText, Calendar, Globe, PlayCircle, User, Clock, MessageCircle, Brain } from 'lucide-react';
+import RAGChatInterface from '@/components/rag-chat-interface';
 
 export default function NotePage() {
     const params = useParams();
     const [note, setNote] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [showRAGChat, setShowRAGChat] = useState(false);
 
     useEffect(() => {
         if (params.id) {
@@ -133,6 +135,25 @@ export default function NotePage() {
                                     <span>{note.file_metadata.word_count} words</span>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 mb-4">
+                            <button
+                                onClick={() => setShowRAGChat(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                                <Brain className="h-4 w-4" />
+                                <span>Chat dengan AI</span>
+                            </button>
+
+                            <button
+                                onClick={() => setShowRAGChat(true)}
+                                className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                                <MessageCircle className="h-4 w-4" />
+                                <span>Diskusi</span>
+                            </button>
                         </div>
 
                         {/* Source specific info */}
@@ -293,6 +314,19 @@ export default function NotePage() {
                     </pre>
                 </div>
             </div>
+
+            {/* RAG Chat Interface */}
+            {showRAGChat && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl h-[600px] flex flex-col">
+                        <RAGChatInterface
+                            noteId={note.id}
+                            noteTitle={note.ai_generated_data?.title || note.title}
+                            onClose={() => setShowRAGChat(false)}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
